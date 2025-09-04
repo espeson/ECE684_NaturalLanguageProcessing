@@ -8,9 +8,7 @@ Jelinek 1985 "Markov Source Modeling of Text Generation"
 
 import csv
 import nltk
-import sys
-import os
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 from mtg import finish_sentence
 
 

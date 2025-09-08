@@ -1,102 +1,127 @@
 import random
 from collections import defaultdict, Counter
+import numpy as np
 
-def finish_sentence(sentence, n, corpus, randomize=False):
-    """
-    Finish a sentence using a n-gram model with stupid backoff.
 
-    Args:
-        sentence (tuple): The input sentence (tuple of tokens).
-        n (int): The length of the n-grams.
-        corpus (tuple): The source corpus (tuple of tokens).
-        randomize (bool): Whether to randomly select the next word.
+def build_ngram_model(corpus, n):
+    model = defaultdict(Counter)
+    
+    for i in range(len(corpus) - n + 1):
+        ngram = tuple(corpus[i:i+n])
+        context = ngram[:-1]
+        next_token = ngram[-1]
+        model[context][next_token] += 1
+    
+    return model
 
-    Returns:
-        result (list): The completed sentence (list of tokens).
-    """
 
-    def get_ngrams(tokens, n):
-        """
-        Generate n-grams from a list of tokens.
-
-        Args:
-            tokens (list): A list of tokens.
-            n (int): The size of the n-grams.
+def get_next_token_probabilities(context, corpus, n, alpha=0.4):
+    for context_len in range(min(len(context), n-1), -1, -1):
+        if context_len == 0:
+            return Counter(corpus)
         
-        Returns:
-            ngrams (list of tuples): A list of n-grams.
-        """
-        ngrams = []
-        for i in range(len(tokens) - n + 1):
-            ngram = tuple(tokens[i:i+n])
-            ngrams.append(ngram)
-        return ngrams
-
-    def build_model(corpus, n):
-        """
-        Build an n-gram model from a corpus.
-
-        Args:
-            corpus (list): A list of tokens.
-            n (int): The size of the n-grams (n > 1, no unigrams).
-
-        Returns:
-            model (defaultdict): The n-gram language model - a dictionary of n-gram histories.
-        """
-        if n < 2:
-            raise ValueError("n must be greater than 1, i.e., no unigrams.")
+        ngram_order = context_len + 1
+        model = build_ngram_model(corpus, ngram_order)
         
-        model = defaultdict(Counter)
-        for ngram in get_ngrams(corpus, n):
-            history, token = tuple(ngram[:-1]), ngram[-1]
-            model[history][token] += 1
-        return model
+        current_context = context[-context_len:]
+        
+        if current_context in model:
+            counts = model[current_context]
+            backoff_penalty = alpha ** (len(context) - context_len)
+            
+            result = Counter()
+            for token, count in counts.items():
+                result[token] = count * backoff_penalty
+            
+            return result
+    
+    # Shouldn't reach here but just in case
+    return Counter(corpus)
 
-    def stupid_backoff(history, alpha=0.4):
-        """
-        Implement the stupid backoff algorithm to generate the next word.
-        
-        Args:
-            history (tuple): The previous n-1 words in the sequence.
-            alpha (float): The backoff factor, default is 0.4.
-        
-        Returns:
-            A dictionary of possible next words and their adjusted counts.
-        
-        The function works as follows:
-        1. Start with the full history.
-        2. If the full history is found in the model, return the corresponding word distribution.
-        3. If not, back off to a shorter history and multiply counts by alpha.
-        4. Repeat steps 2-3, progressively shortening the history and applying alpha each time.
-        5. If no match is found even for bigrams, return an unigram model distribution. 
-        """
-        for i in range(len(history), 0, -1):
-            n = i + 1
-            model = build_model(corpus, n)
-            if history[-i:] in model:
-                return {word: count * (alpha ** (len(history) - i))
-                        for word, count in model[history[-i:]].items()}
-        return Counter(corpus)
 
+def choose_next_token(probabilities, randomize=False):
+    """Pick next token - deterministic or random."""
+    if not probabilities:
+        return None
+    
+    if randomize:
+        tokens = list(probabilities.keys())
+        weights = list(probabilities.values())
+        total = sum(weights)
+        weights = [w/total for w in weights]
+        return np.random.choice(tokens, p=weights)
+    else:
+        # Deterministic
+        max_prob = max(probabilities.values())
+        candidates = [token for token, prob in probabilities.items() if prob == max_prob]
+        return min(candidates)
+
+
+def finish_sentence(sentence, n, corpus, randomize=False, alpha=0.4):
     result = list(sentence)
+    sentence_enders = {'.', '?', '!'}
+    
+    while len(result) < 10:
+        # Get context (last n-1 tokens)
+        max_context_len = n - 1
+        context = tuple(result[-max_context_len:]) if len(result) >= max_context_len else tuple(result)
+        
+        # Get probabilities using stupid backoff
+        probabilities = get_next_token_probabilities(context, corpus, n, alpha)
+        
+        next_token = choose_next_token(probabilities, randomize)
+        
+        if next_token is None:
+            break
+        
+        result.append(next_token)
 
-    while len(result) < 10 and result[-1] not in '.?!':
-        history = tuple(result[-(n-1):]) if len(result) >= n-1 else tuple(result)
-        distribution = stupid_backoff(history)
-
-        if randomize:
-            total = sum(distribution.values())
-            rand = random.random() * total
-            for word, count in distribution.items():
-                rand -= count
-                if rand <= 0:
-                    next_word = word
-                    break
-
-        else:
-            max_count = max(distribution.values())
-            next_word = min([word for word, count in distribution.items() if count == max_count])
-
-        result.append(next_word)
-
+        if next_token in sentence_enders:
+            break
+    
     return result
+
+
+def run_example_applications():
+    import nltk
+    
+    try:
+        corpus = tuple(nltk.word_tokenize(nltk.corpus.gutenberg.raw('austen-sense.txt').lower()))
+    except LookupError:
+        print("Need to download NLTK data first")
+        return
+    
+    print("Markov Text Generator Examples")
+    print("=" * 40)
+    print()
+    
+    print("Assignment test case:")
+    sentence = ['she', 'was', 'not']
+    n = 3
+    result = finish_sentence(sentence, n, corpus, randomize=False)
+    print(f"Result: {result}")
+    print()
+    
+    # Different seeds and n values
+    print("Various examples:")
+    test_cases = [
+        (['it', 'was'], 2),
+        (['he', 'said'], 2), 
+        (['they', 'were', 'very'], 3),
+        (['in', 'the', 'morning'], 4)
+    ]
+    
+    for seed, n in test_cases:
+        print(f"Seed: {seed}, n={n}")
+        
+        # Deterministic
+        det_result = finish_sentence(seed, n, corpus, randomize=False)
+        print(f"  Det: {' '.join(det_result)}")
+        
+        # Random 
+        rand_result = finish_sentence(seed, n, corpus, randomize=True)
+        print(f"  Rand: {' '.join(rand_result)}")
+        print()
+
+if __name__ == "__main__":
+    run_example_applications()

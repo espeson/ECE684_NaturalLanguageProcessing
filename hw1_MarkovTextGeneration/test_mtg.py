@@ -11,7 +11,6 @@ import nltk
 
 from mtg import finish_sentence
 
-
 def test_generator():
     """Test Markov text generator."""
     corpus = tuple(

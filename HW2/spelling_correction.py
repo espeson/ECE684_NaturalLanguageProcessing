@@ -184,8 +184,8 @@ if __name__ == "__main__":
     
     
     print("\nScenarios where it could do better:")
-    
-    # Transposition (swapped letters)
+
+    # Swapped letters
     word = "chekc"
     result = correct(word)
     print(f"'{word}' -> '{result}' (should be 'check' transposition error)")

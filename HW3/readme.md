@@ -64,28 +64,29 @@
 | . | . | . | ✓ |  |
 
 
-## Error Analysis
+## Why It Produces Correct Tags
 
-### Why Correct Tags Are Produced:
-1. **Frequent Words**: Common words like "the", "is", "and" have clear, unambiguous patterns
-2. **Strong Context**: DET→NOUN, VERB→ADV sequences are well-learned from training data
-3. **Syntactic Patterns**: The model captures typical English word order effectively
+- **Large training data** (10k sentences) provides good word-tag associations
+- **Add-1 smoothing** prevents zero probabilities for unseen transitions
+- **Viterbi algorithm** finds optimal tag sequence using both word probabilities and tag transitions
+- **Common patterns** like DET→NOUN, VERB→NOUN are well-learned
 
-### Why Errors Occur:
+## Why It Makes Errors
 
-**"coming" (VERB → NOUN)**:
-- **Issue**: Can function as present participle (VERB) or gerund (NOUN)
-- **Context**: "Those coming from..." - participle modifying "Those"
-- **Model Error**: Training data likely shows more NOUN usage for "-ing" forms
+**"coming" (VERB → NOUN)**
+- Word can be both verb (participle) and noun (gerund)
+- Model learned stronger noun association from training data
 
-**"face-to-face" (ADJ → NOUN)**:
-- **Issue**: Compound adjective treated as separate tokens
-- **Context**: Should modify "group" as single adjectival unit
-- **Model Error**: Lacks morphological awareness for hyphenated compounds
+**"face-to-face" (ADJ → NOUN)**  
+- Compound adjective not recognized as single unit
+- Model treats hyphenated words as separate tokens
 
-**"another" (DET → NOUN)**:
-- **Issue**: Functions as both determiner and indefinite pronoun
-- **Context**: "with one another" - "another" is determiner here
-- **Model Error**: May have stronger NOUN association in training data
+**"another" (DET → NOUN)**
+- Word functions as both determiner and pronoun
+- Training data bias toward noun classification
 
-The tagger's 93.3% accuracy demonstrates effective learning of statistical patterns, but linguistic complexity in ambiguous cases remains challenging for the HMM approach.
+## Main Limitations
+
+- **Limited context**: Only considers previous tag, not full sentence structure
+- **No morphology**: Cannot analyze word formation or compounds
+- **Training bias**: Reflects frequency patterns from Brown corpus

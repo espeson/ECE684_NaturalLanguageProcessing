@@ -30,6 +30,8 @@ learning_rate = 0.1
 ---
 
 ## 3. Visualizations
+![unigram_results](unigram_results.png)
+
 
 ### Token Probabilities vs Optimal
 Compares learned vs optimal (empirical) probabilities for all 28 characters.
